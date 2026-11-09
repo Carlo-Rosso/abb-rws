@@ -37,7 +37,7 @@
  ***********************************************************************************************************************
  */
 
-#include "abb_librws/rws_state_machine_interface.h"
+#include "abb_rws/rws_state_machine_interface.h"
 #ifdef _WIN32
 #include <windows.h>
 #endif

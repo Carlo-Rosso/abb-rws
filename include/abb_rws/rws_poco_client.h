@@ -37,8 +37,8 @@
  ***********************************************************************************************************************
  */
 
-#ifndef RWS_POCO_CLIENT_H
-#define RWS_POCO_CLIENT_H
+#ifndef ABB_RWS_RWS_POCO_CLIENT_H
+#define ABB_RWS_RWS_POCO_CLIENT_H
 
 #include "Poco/Mutex.h"
 #include "Poco/Net/HTTPSClientSession.h"

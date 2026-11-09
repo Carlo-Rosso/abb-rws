@@ -37,8 +37,8 @@
  ***********************************************************************************************************************
  */
 
-#ifndef RWS_STATE_MACHINE_INTERFACE_H
-#define RWS_STATE_MACHINE_INTERFACE_H
+#ifndef ABB_RWS_RWS_STATE_MACHINE_INTERFACE_H
+#define ABB_RWS_RWS_STATE_MACHINE_INTERFACE_H
 
 #include "rws_interface.h"
 #include "cstdint"
@@ -124,7 +124,7 @@ namespace abb
         /**
          * \brief IO signal resources.
          */
-        struct ABB_LIBRWS_EXPORT IOSignals
+        struct ABB_RWS_EXPORT IOSignals
         {
           /**
            * \brief IO signal for requesting start of EGM joint motions (i.e. EGM joint mode).
@@ -216,7 +216,7 @@ namespace abb
           /**
            * \brief RAPID modules.
            */
-          struct ABB_LIBRWS_EXPORT Modules
+          struct ABB_RWS_EXPORT Modules
           {
             /**
              * \brief RAPID module providing functionality for using EGM.
@@ -256,7 +256,7 @@ namespace abb
           /**
            * \brief Predefiend RAPID procedures.
            */
-          struct ABB_LIBRWS_EXPORT Procedures
+          struct ABB_RWS_EXPORT Procedures
           {
             /**
              * \brief Predefined RAPID procedure "runCallByVar".
@@ -292,7 +292,7 @@ namespace abb
           /**
            * \brief RAPID symbols.
            */
-          struct ABB_LIBRWS_EXPORT Symbols
+          struct ABB_RWS_EXPORT Symbols
           {
             /**
              * \brief RAPID symbol indicating the current EGM action of a RAPID motion task.

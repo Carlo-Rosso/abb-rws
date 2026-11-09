@@ -41,8 +41,8 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "abb_librws/rws_interface.h"
-#include "abb_librws/rws_rapid.h"
+#include "abb_rws/rws_interface.h"
+#include "abb_rws/rws_rapid.h"
 
 namespace
 {

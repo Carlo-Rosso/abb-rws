@@ -37,8 +37,8 @@
  ***********************************************************************************************************************
  */
 
-#ifndef RWS_INTERFACE_H
-#define RWS_INTERFACE_H
+#ifndef ABB_RWS_RWS_INTERFACE_H
+#define ABB_RWS_RWS_INTERFACE_H
 
 #include "rws_cfg.h"
 #include "rws_client.h"
@@ -618,7 +618,7 @@ namespace abb
        *
        * \return std::vector<RobotWareOptionInfo> containing a list of the present RobotWare options.
        */
-      ABB_LIBRWS_DEPRECATED std::vector<RobotWareOptionInfo> getPresentRobotWareOptions();
+      ABB_RWS_DEPRECATED std::vector<RobotWareOptionInfo> getPresentRobotWareOptions();
 
       /**
        * \brief A method for retrieving the RobotWare options present on the active robot controller system.

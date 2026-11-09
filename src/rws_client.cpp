@@ -42,7 +42,7 @@
 
 #include "Poco/SAX/InputSource.h"
 
-#include "abb_librws/rws_client.h"
+#include "abb_rws/rws_client.h"
 
 namespace
 {

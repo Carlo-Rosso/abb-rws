@@ -1,6 +1,6 @@
 add_executable(rws_test rws_test.cpp)
 
-target_link_libraries(rws_test PRIVATE abb_librws::abb_librws ${Poco_LIBRARIES})
+target_link_libraries(rws_test PRIVATE abb_rws::abb_rws ${Poco_LIBRARIES})
 
 # Windows does not search the POCO import-library directory for runtime DLLs.
 # Copy the dependencies beside rws_test so the executable can be launched
@@ -13,7 +13,7 @@ if(WIN32)
   get_filename_component(POCO_PREFIX_DIR "${Poco_INCLUDE_DIR}/.." ABSOLUTE)
 
   # Include transitive POCO DLLs as well (for example PocoUtil depends on
-  # PocoJSON), not only the libraries directly linked by abb_librws.
+  # PocoJSON), not only the libraries directly linked by abb_rws.
   if(POCO_PREFIX_DIR)
     file(GLOB POCO_RUNTIME_DLLS "${POCO_PREFIX_DIR}/bin/Poco*.dll")
     list(APPEND RWS_TEST_RUNTIME_DLLS ${POCO_RUNTIME_DLLS})

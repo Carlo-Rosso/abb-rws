@@ -37,8 +37,8 @@
  ***********************************************************************************************************************
  */
 
-#ifndef RWS_CLIENT_H
-#define RWS_CLIENT_H
+#ifndef ABB_RWS_RWS_CLIENT_H
+#define ABB_RWS_RWS_CLIENT_H
 
 #include <deque>
 #include <sstream>

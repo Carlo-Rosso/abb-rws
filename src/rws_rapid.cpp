@@ -40,8 +40,8 @@
 #include <sstream>
 #include <string>
 
-#include "abb_librws/rws_common.h"
-#include "abb_librws/rws_rapid.h"
+#include "abb_rws/rws_common.h"
+#include "abb_rws/rws_rapid.h"
 
 namespace abb
 {

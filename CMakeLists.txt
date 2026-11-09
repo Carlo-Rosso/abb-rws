@@ -10,7 +10,7 @@ endif()
 # At this point we either have a proper version string, or we've errored
 # out with a FATAL_ERROR above. So assume CMAKE_MATCH_1 contains our
 # package's version.
-project(abb_librws VERSION ${CMAKE_MATCH_1} LANGUAGES CXX)
+project(abb_rws VERSION ${CMAKE_MATCH_1} LANGUAGES CXX)
 
 include(GNUInstallDirs)
 
@@ -75,7 +75,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 )
 
 if(NOT BUILD_SHARED_LIBS)
-  target_compile_definitions(${PROJECT_NAME} PUBLIC "ABB_LIBRWS_STATIC_DEFINE")
+  target_compile_definitions(${PROJECT_NAME} PUBLIC "ABB_RWS_STATIC_DEFINE")
 endif()
 
 #############
