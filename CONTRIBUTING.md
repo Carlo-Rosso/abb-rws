@@ -23,10 +23,10 @@ The version is written in one place: `<version>` in [package.xml](package.xml). 
 2. Commit, then tag the commit with the same version prefixed by `v` and push the tag:
 
    ```sh
-   git tag v1.2.0
-   git push origin v1.2.0
+   git tag v2.0.0
+   git push origin v2.0.0
    ```
 
    CI fails if the tag does not match `package.xml`.
 3. Create the GitHub release from the tag.
-4. Update the conda-forge recipe (`version` and the `sha256` of the release archive `https://github.com/Carlo-Rosso/abb-rws/archive/refs/tags/v<version>.tar.gz`). After the feedstock exists, the conda-forge bot opens this pull request automatically for every new GitHub release.
+4. Update the conda-forge recipe (`version` and the `sha256` of the release archive `https://github.com/Carlo-Rosso/abb-rws/archive/refs/tags/v<version>.tar.gz`). Once the package has a conda-forge feedstock, the conda-forge bot opens this pull request automatically for every new GitHub release.
