@@ -38,5 +38,6 @@
 
 # colcon
 /build-colcon
+/build-consumer
 /install
 /log

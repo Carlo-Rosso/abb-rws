@@ -12,23 +12,31 @@ cxx-compiler = "*"
 poco = ">=1.4.3"
 openssl = "*"
 
+# Notes on the CMake arguments of the tasks below:
+# - -G Ninja overrides the CMAKE_GENERATOR(_PLATFORM) variables set by the
+#   conda-forge MSVC activation scripts on Windows.
+# - On Linux/macOS, OPENSSL_ROOT_DIR=$CONDA_PREFIX forces FindOpenSSL (called by
+#   PocoConfig.cmake) to use the OpenSSL of the pixi environment. Otherwise it
+#   can pick the system OpenSSL, which is incompatible with the conda-forge
+#   POCO build (undefined OPENSSL_3.x / GLIBC_2.3x symbols at link time).
+#   On Windows the environment OpenSSL is found through PATH.
+
 [tasks]
-# -G Ninja overrides the CMAKE_GENERATOR(_PLATFORM) variables set by the
-# conda-forge MSVC activation scripts on Windows.
-# CMAKE_PREFIX_PATH=$CONDA_PREFIX makes CMake prefer the pixi environment over
-# system libraries: otherwise FindOpenSSL (called by PocoConfig.cmake) follows
-# the system pkg-config and links the system OpenSSL, which is incompatible
-# with the conda-forge POCO build.
-configure = "cmake -G Ninja --preset default-examples -DCMAKE_PREFIX_PATH=$CONDA_PREFIX"
 build = { cmd = "cmake --build build", depends-on = ["configure"] }
 install = { cmd = "cmake --install build --prefix build/install", depends-on = ["build"] }
-clean = "cmake -E rm -rf build build-colcon install log"
-
-[target.win-64.tasks]
-example = { cmd = "build/bin/rws_test.exe", depends-on = ["build"] }
+# Builds a downstream project against the installed package (find_package(abb_rws)).
+test-consumer = { cmd = "cmake --build build-consumer", depends-on = ["configure-consumer"] }
+clean = "cmake -E rm -rf build build-consumer build-colcon install log"
 
 [target.unix.tasks]
+configure = "cmake -G Ninja --preset default-examples -DOPENSSL_ROOT_DIR=$CONDA_PREFIX"
+configure-consumer = { cmd = "cmake -S test/consumer -B build-consumer -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$PIXI_PROJECT_ROOT/build/install -DOPENSSL_ROOT_DIR=$CONDA_PREFIX", depends-on = ["install"] }
 example = { cmd = "build/bin/rws_test", depends-on = ["build"] }
+
+[target.win-64.tasks]
+configure = "cmake -G Ninja --preset default-examples"
+configure-consumer = { cmd = "cmake -S test/consumer -B build-consumer -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$PIXI_PROJECT_ROOT/build/install", depends-on = ["install"] }
+example = { cmd = "build/bin/rws_test.exe", depends-on = ["build"] }
 
 # ROS tooling: validates package.xml and builds the package with colcon,
 # the same way ROS workspaces and RoboStack (vinca) handle it.
@@ -38,7 +46,12 @@ colcon-common-extensions = "*"
 
 [feature.ros.tasks]
 check-package-xml = "python -c \"from catkin_pkg.package import parse_package; p = parse_package('.'); p.validate(); print(p.name, p.version, 'OK')\""
-colcon = { cmd = "colcon build --paths . --build-base build-colcon --install-base install --cmake-args -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$CONDA_PREFIX", depends-on = ["check-package-xml"] }
+
+[feature.ros.target.unix.tasks]
+colcon = { cmd = "colcon build --paths . --build-base build-colcon --install-base install --cmake-args -G Ninja -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR=$CONDA_PREFIX", depends-on = ["check-package-xml"] }
+
+[feature.ros.target.win-64.tasks]
+colcon = { cmd = "colcon build --paths . --build-base build-colcon --install-base install --cmake-args -G Ninja -DCMAKE_BUILD_TYPE=Release", depends-on = ["check-package-xml"] }
 
 [environments]
 ros = ["ros"]

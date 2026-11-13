@@ -7,7 +7,7 @@
 3. Check that the project builds before opening the pull request:
 
    ```sh
-   pixi run build             # library + example, dependencies from conda-forge
+   pixi run test-consumer     # library + example, install, downstream find_package(abb_rws) test
    pixi run -e ros colcon     # package.xml validation + colcon build
    ```
 
