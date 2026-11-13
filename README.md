@@ -2,7 +2,56 @@
 
 [![license - bsd 3 clause](https://img.shields.io/:license-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-[![support level: community](https://img.shields.io/badge/support%20level-community-lightgray.svg)](http://rosindustrial.org/news/2016/10/7/better-supporting-a-growing-ros-industrial-software-platform)
+A C++ library for interfacing with ABB robot controllers through *Robot Web Services* (RWS) `1.0` (RobotWare `6.x`) and `2.0` (RobotWare `7.x`).
+
+> **This is a hard fork of [ros-industrial/abb_librws](https://github.com/ros-industrial/abb_librws).**
+> The original library (RWS 1.0) was written by **Jon Tjerngren** (ABB) and maintained by **G.A. vd. Hoorn** and the ROS-Industrial community. RWS 2.0 support was developed by **JOiiNT LAB** (IIT), **Gianluca Correnti** (IIT-Danieli Joint Lab) and **Carlo Rosso**, who maintains this fork.
+> This fork supports both RWS 1.0 and 2.0 with a selectable protocol version, renames the package to `abb_rws` and packages it for conda-forge. See [AUTHORS.md](AUTHORS.md) for the full list of authors and contributors.
+> This fork is not affiliated with or endorsed by ABB or ROS-Industrial.
+
+## Installation
+
+### conda-forge / pixi
+
+```sh
+pixi add abb-rws
+# or
+conda install -c conda-forge abb-rws
+```
+
+### From source
+
+Dependencies: CMake >= 3.16, a C++17 compiler and [POCO](https://pocoproject.org) >= 1.4.3 with the `Foundation`, `Net`, `Util`, `XML`, `Crypto` and `NetSSL` components (OpenSSL).
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+cmake --install build --prefix <install-prefix>
+```
+
+With [pixi](https://pixi.sh), all dependencies come from conda-forge:
+
+```sh
+pixi run build            # configure + build (examples included)
+pixi run -e ros colcon    # build the package with colcon, as ROS/RoboStack does
+```
+
+### Using the library from CMake
+
+The CMake package and the target are named `abb_rws`:
+
+```cmake
+find_package(abb_rws REQUIRED)
+target_link_libraries(my_target PRIVATE abb_rws::abb_rws)
+```
+
+The headers are under `abb_rws/`, e.g. `#include <abb_rws/rws_interface.h>`.
+
+### ROS / RoboStack
+
+The repository contains a ROS [`package.xml`](package.xml) (format 3, `build_type` `cmake`) for the package `abb_rws`, so it can be built in a ROS 1 or ROS 2 workspace with `colcon` or `catkin_tools`. The dependencies are declared with standard rosdep keys (`libpoco-dev`, `libssl-dev`), which RoboStack maps to the conda-forge `poco` and `openssl` packages.
+
+In a [RoboStack](https://robostack.github.io) environment the conda-forge `abb-rws` package can be installed alongside the ROS packages, and other ROS packages can use it with `find_package(abb_rws)`.
 
 ## Important Notes
 
@@ -45,7 +94,7 @@ The old constructors remain available: constructors without a version or SSL con
 The default ports are `80` for RWS 1.0 and `443` for RWS 2.0. If a RobotWare 7.x controller uses another secure port, pass `RWSVersion::RWS2` explicitly (or configure the secure listener, for example with `ListenSecure 443` in `appweb.conf`).
 For RWS 2.0, mastership is required for write operations (and must be released immediately after the write).
 When the RobotWare controller is in **Automatic** mode, an RWS 2.0 client can request mastership directly. In **Manual** mode, the remote client must first obtain Remote Mastership Management Privilege (RMMP) and the request must be approved on the FlexPendant. The example test therefore requires Automatic mode unless the RMMP workflow is implemented and approved.
-To check in detail which operations require mastership, refer to the **RWS 2.0 documentation** linked above, look for the **“Mastership is required”** note within the function descriptions.
+To check in detail which operations require mastership, refer to the [RWS 2.0 documentation](https://developercenter.robotstudio.com/api/RWS), look for the **“Mastership is required”** note within the function descriptions.
 
 Please note that this package has not been productized, it is provided "as-is" and only limited support can be expected.
 
@@ -125,3 +174,24 @@ See the Add-In's user manual ([1.0](https://robotapps.blob.core.windows.net/appr
 ## Acknowledgements
 
 This work is based on the [abb_librws](https://github.com/ros-industrial/abb_librws) classes developed by Jon Tjerngren for ABB IRC5 controllers (for RWS `1.0`, running RobotWare `6.x`) and on the [abb_librws](https://github.com/JOiiNT-LAB/abb_wrapper/tree/master/abb_librws) classes developed by JOiiNT-LAB for ABB controllers (for RWS `2.0`, running RobotWare `7.x`).
+
+The following acknowledgements are from the original `abb_librws` library:
+
+> The **core development** has been supported by the European Union's Horizon 2020 project [SYMBIO-TIC](http://www.symbio-tic.eu/).
+> The SYMBIO-TIC project has received funding from the European Union's Horizon 2020 research and innovation programme under grant agreement no. 637107.
+>
+> <img src="docs/images/symbio_tic_logo.png" width="250">
+>
+> The **open-source process** has been supported by the European Union's Horizon 2020 project [ROSIN](http://rosin-project.eu/).
+> The ROSIN project has received funding from the European Union's Horizon 2020 research and innovation programme under grant agreement no. 732287.
+>
+> <img src="docs/images/rosin_logo.png" width="250">
+>
+> The opinions expressed reflects only the author's view and reflects in no way the European Commission's opinions.
+> The European Commission is not responsible for any use that may be made of the contained information.
+>
+> Special thanks to [gavanderhoorn](https://github.com/gavanderhoorn) for guidance with open-source practices and ROS-Industrial conventions.
+
+## License
+
+BSD 3-Clause, see [LICENSE](LICENSE). The copyright notices of ABB Schweiz AG and of the RWS 2.0 contributors must be kept in redistributions.
