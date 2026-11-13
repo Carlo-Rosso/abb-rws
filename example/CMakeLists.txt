@@ -1,31 +1,38 @@
 add_executable(rws_test rws_test.cpp)
 
-target_link_libraries(rws_test PRIVATE abb_rws::abb_rws ${Poco_LIBRARIES})
+# abb_rws::abb_rws already propagates the POCO libraries and include paths.
+target_link_libraries(rws_test PRIVATE abb_rws::abb_rws)
 
 # Windows does not search the POCO import-library directory for runtime DLLs.
 # Copy the dependencies beside rws_test so the executable can be launched
 # directly after a build, without requiring a manually modified PATH.
 if(WIN32)
   set(RWS_TEST_RUNTIME_DLLS)
+  set(POCO_RUNTIME_DIR)
 
-  # FindPoco always provides the absolute Foundation import-library path.
-  # Derive the matching runtime bin directory from it.
-  get_filename_component(POCO_PREFIX_DIR "${Poco_INCLUDE_DIR}/.." ABSOLUTE)
-
-  # Include transitive POCO DLLs as well (for example PocoUtil depends on
-  # PocoJSON), not only the libraries directly linked by abb_rws.
-  if(POCO_PREFIX_DIR)
-    file(GLOB POCO_RUNTIME_DLLS "${POCO_PREFIX_DIR}/bin/Poco*.dll")
-    list(APPEND RWS_TEST_RUNTIME_DLLS ${POCO_RUNTIME_DLLS})
+  if(TARGET Poco::Foundation)
+    # POCO CMake config: the imported location of PocoFoundation is the DLL.
+    foreach(config_suffix _RELEASE _RELWITHDEBINFO _MINSIZEREL _DEBUG "")
+      get_target_property(POCO_FOUNDATION_DLL Poco::Foundation IMPORTED_LOCATION${config_suffix})
+      if(POCO_FOUNDATION_DLL)
+        get_filename_component(POCO_RUNTIME_DIR "${POCO_FOUNDATION_DLL}" DIRECTORY)
+        break()
+      endif()
+    endforeach()
+  elseif(Poco_INCLUDE_DIR)
+    # Bundled FindPoco module: derive <prefix>/bin from <prefix>/include.
+    get_filename_component(POCO_RUNTIME_DIR "${Poco_INCLUDE_DIR}/../bin" ABSOLUTE)
   endif()
 
-  # PocoNetSSL uses OpenSSL; these names vary by OpenSSL version.
-  if(POCO_PREFIX_DIR)
-    file(GLOB OPENSSL_RUNTIME_DLLS
-      "${POCO_PREFIX_DIR}/bin/libssl*.dll"
-      "${POCO_PREFIX_DIR}/bin/libcrypto*.dll"
-      "${POCO_PREFIX_DIR}/bin/zlib*.dll")
-    list(APPEND RWS_TEST_RUNTIME_DLLS ${OPENSSL_RUNTIME_DLLS})
+  if(POCO_RUNTIME_DIR)
+    # Include transitive POCO DLLs as well (for example PocoUtil depends on
+    # PocoJSON), not only the libraries directly linked by abb_rws.
+    # PocoNetSSL uses OpenSSL; these names vary by OpenSSL version.
+    file(GLOB RWS_TEST_RUNTIME_DLLS
+      "${POCO_RUNTIME_DIR}/Poco*.dll"
+      "${POCO_RUNTIME_DIR}/libssl*.dll"
+      "${POCO_RUNTIME_DIR}/libcrypto*.dll"
+      "${POCO_RUNTIME_DIR}/zlib*.dll")
   endif()
 
   list(REMOVE_DUPLICATES RWS_TEST_RUNTIME_DLLS)
