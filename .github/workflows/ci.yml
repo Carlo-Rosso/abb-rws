@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # package.xml is the single source of truth for the version (CMake reads it).
+  # A release tag must be v<version> or <version>, e.g. v1.2.0.
+  version:
+    name: Check release tag
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare tag with package.xml version
+        shell: bash
+        run: |
+          version=$(sed -n 's:.*<version>\(.*\)</version>.*:\1:p' package.xml)
+          tag="${GITHUB_REF_NAME#v}"
+          echo "package.xml version: ${version}, tag: ${GITHUB_REF_NAME}"
+          if [ "${tag}" != "${version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match the package.xml version ${version}"
+            exit 1
+          fi
+
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.11.3
+        with:
+          environments: default ros
+
+      - name: Build library and example (conda-forge dependencies)
+        run: pixi run install
+
+      - name: Check that the installed CMake package can be consumed
+        shell: bash
+        run: |
+          mkdir -p build-consumer
+          cat > build-consumer/CMakeLists.txt <<'EOF'
+          cmake_minimum_required(VERSION 3.16)
+          project(consumer LANGUAGES CXX)
+          find_package(abb_rws REQUIRED)
+          file(WRITE ${CMAKE_BINARY_DIR}/main.cpp "#include <abb_rws/rws_interface.h>\nint main() { return 0; }\n")
+          add_executable(consumer ${CMAKE_BINARY_DIR}/main.cpp)
+          target_link_libraries(consumer PRIVATE abb_rws::abb_rws)
+          EOF
+          pixi run cmake -S build-consumer -B build-consumer/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$PWD/build/install"
+          pixi run cmake --build build-consumer/build
+
+      - name: Validate package.xml and build with colcon (ROS / RoboStack)
+        run: pixi run -e ros colcon

@@ -1,0 +1,39 @@
+[workspace]
+name = "abb-rws"
+authors = ["Carlo Rosso <carlo.rosso@iit.it>"]
+description = "C++ library for ABB Robot Web Services (RWS 1.0 and 2.0), hard fork of ros-industrial/abb_librws"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+cmake = ">=3.16"
+ninja = "*"
+cxx-compiler = "*"
+poco = ">=1.4.3"
+
+[tasks]
+# -G Ninja overrides the CMAKE_GENERATOR(_PLATFORM) variables set by the
+# conda-forge MSVC activation scripts on Windows.
+configure = "cmake -G Ninja --preset default-examples"
+build = { cmd = "cmake --build build", depends-on = ["configure"] }
+install = { cmd = "cmake --install build --prefix build/install", depends-on = ["build"] }
+clean = "cmake -E rm -rf build build-colcon install log"
+
+[target.win-64.tasks]
+example = { cmd = "build/bin/rws_test.exe", depends-on = ["build"] }
+
+[target.unix.tasks]
+example = { cmd = "build/bin/rws_test", depends-on = ["build"] }
+
+# ROS tooling: validates package.xml and builds the package with colcon,
+# the same way ROS workspaces and RoboStack (vinca) handle it.
+[feature.ros.dependencies]
+catkin_pkg = "*"
+colcon-common-extensions = "*"
+
+[feature.ros.tasks]
+check-package-xml = "python -c \"from catkin_pkg.package import parse_package; p = parse_package('.'); p.validate(); print(p.name, p.version, 'OK')\""
+colcon = { cmd = "colcon build --paths . --build-base build-colcon --install-base install --cmake-args -G Ninja -DCMAKE_BUILD_TYPE=Release", depends-on = ["check-package-xml"] }
+
+[environments]
+ros = ["ros"]
