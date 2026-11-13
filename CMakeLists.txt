@@ -1,5 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
-set(CMAKE_CXX_STANDARD 17)
+cmake_minimum_required(VERSION 3.16...3.31)
 
 # Read version from the package.xml file.
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/package.xml package_xml_str)
@@ -10,7 +9,10 @@ endif()
 # At this point we either have a proper version string, or we've errored
 # out with a FATAL_ERROR above. So assume CMAKE_MATCH_1 contains our
 # package's version.
-project(abb_librws VERSION ${CMAKE_MATCH_1} LANGUAGES CXX)
+project(abb_rws VERSION ${CMAKE_MATCH_1} LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(GNUInstallDirs)
 
@@ -28,7 +30,27 @@ endif()
 ## POCO C++ Libraries ##
 ########################
 # We need at least 1.4.3 because of WebSocket support.
-find_package(Poco 1.4.3 REQUIRED COMPONENTS Foundation Net Util XML Crypto NetSSL)
+# Crypto and NetSSL are needed for RWS 2.0 (HTTPS).
+set(ABB_RWS_POCO_COMPONENTS Foundation Net Util XML Crypto NetSSL)
+
+# Prefer the CMake package config shipped by POCO itself (conda-forge, vcpkg,
+# Debian/Ubuntu libpoco-dev, upstream installs): it provides relocatable
+# Poco::<Component> imported targets, so no absolute paths end up in the
+# exported abb_rws targets. Fall back to the bundled FindPoco module for old
+# POCO installations without a CMake config.
+find_package(Poco 1.4.3 CONFIG QUIET COMPONENTS ${ABB_RWS_POCO_COMPONENTS})
+if(Poco_FOUND)
+  set(ABB_RWS_POCO_USE_CONFIG ON)
+  set(ABB_RWS_POCO_LINK_LIBRARIES)
+  foreach(component IN LISTS ABB_RWS_POCO_COMPONENTS)
+    list(APPEND ABB_RWS_POCO_LINK_LIBRARIES Poco::${component})
+  endforeach()
+  message(STATUS "Found POCO ${Poco_VERSION} (CMake config: ${Poco_DIR})")
+else()
+  set(ABB_RWS_POCO_USE_CONFIG OFF)
+  find_package(Poco 1.4.3 MODULE REQUIRED COMPONENTS ${ABB_RWS_POCO_COMPONENTS})
+  set(ABB_RWS_POCO_LINK_LIBRARIES ${Poco_LIBRARIES})
+endif()
 
 ###########
 ## Build ##
@@ -37,15 +59,8 @@ if(NOT DEFINED BUILD_SHARED_LIBS)
   option(BUILD_SHARED_LIBS "Build dynamically-linked binaries" ON)
 endif()
 
-####################
-## Build Example  ##
-####################
 if(NOT DEFINED CMAKE_BUILD_EXAMPLES)
   option(CMAKE_BUILD_EXAMPLES "Build example applications" OFF)
-endif()
-
-if(CMAKE_BUILD_EXAMPLES)
-  add_subdirectory(example)
 endif()
 
 set(
@@ -61,21 +76,40 @@ set(
 add_library(${PROJECT_NAME} ${SRC_FILES})
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
+set_target_properties(${PROJECT_NAME} PROPERTIES
+  VERSION ${PROJECT_VERSION}
+  SOVERSION ${PROJECT_VERSION_MAJOR}
+)
+
 include(GenerateExportHeader)
 generate_export_header(${PROJECT_NAME})
 
 target_include_directories(${PROJECT_NAME} PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include;${CMAKE_CURRENT_BINARY_DIR}>"
-  $<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>
-  PRIVATE ${Poco_INCLUDE_DIRS}
+  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
 
+if(NOT ABB_RWS_POCO_USE_CONFIG)
+  # The public headers include POCO headers. For installed consumers the
+  # include directories are added again by abb_rwsConfig.cmake.
+  target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
+    "$<BUILD_INTERFACE:${Poco_INCLUDE_DIRS}>"
+  )
+endif()
+
 target_link_libraries(${PROJECT_NAME} PUBLIC
-  ${Poco_LIBRARIES}
+  ${ABB_RWS_POCO_LINK_LIBRARIES}
 )
 
 if(NOT BUILD_SHARED_LIBS)
-  target_compile_definitions(${PROJECT_NAME} PUBLIC "ABB_LIBRWS_STATIC_DEFINE")
+  target_compile_definitions(${PROJECT_NAME} PUBLIC "ABB_RWS_STATIC_DEFINE")
+endif()
+
+####################
+## Build Example  ##
+####################
+if(CMAKE_BUILD_EXAMPLES)
+  add_subdirectory(example)
 endif()
 
 #############
@@ -116,9 +150,11 @@ configure_file(
 # Create the ${PROJECT_NAME}ConfigVersion.cmake.
 write_basic_package_version_file(
   ${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-  COMPATIBILITY AnyNewerVersion
+  COMPATIBILITY SameMajorVersion
 )
 
+# package.xml is installed to share/<name>/ as expected by ROS tooling
+# (rospack, ros2 pkg, RoboStack/vinca).
 install(
   FILES
     "${PROJECT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${PROJECT_NAME}Config.cmake"
@@ -128,7 +164,6 @@ install(
 )
 
 # Export targets.
-set(export_targets ${export_targets};${PROJECT_NAME})
 export(
   EXPORT export_${PROJECT_NAME}
   FILE "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake"

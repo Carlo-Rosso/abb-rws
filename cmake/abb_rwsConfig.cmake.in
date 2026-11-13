@@ -1,0 +1,31 @@
+# - Config file for the abb_rws package
+# It defines the following imported target and variable
+#  abb_rws::abb_rws   - the library target to link against
+#  abb_rws_LIBRARIES  - libraries to link against (same as abb_rws::abb_rws)
+
+include(CMakeFindDependencyMacro)
+
+set(_abb_rws_poco_components @ABB_RWS_POCO_COMPONENTS@)
+
+if(@ABB_RWS_POCO_USE_CONFIG@)
+  # abb_rws was built against POCO's own CMake config (Poco::* targets).
+  find_dependency(Poco CONFIG COMPONENTS ${_abb_rws_poco_components})
+else()
+  # abb_rws was built using the bundled FindPoco module.
+  list(INSERT CMAKE_MODULE_PATH 0 "${CMAKE_CURRENT_LIST_DIR}/cmake")
+  find_dependency(Poco 1.4.3 MODULE COMPONENTS ${_abb_rws_poco_components})
+endif()
+
+# Our library dependencies (contains definitions for IMPORTED targets)
+include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@Targets.cmake")
+
+if(NOT @ABB_RWS_POCO_USE_CONFIG@)
+  # The public headers include POCO headers.
+  set_property(TARGET @PROJECT_NAME@::@PROJECT_NAME@ APPEND PROPERTY
+    INTERFACE_INCLUDE_DIRECTORIES ${Poco_INCLUDE_DIRS})
+endif()
+
+unset(_abb_rws_poco_components)
+
+# These are IMPORTED targets created by @PROJECT_NAME@Targets.cmake
+set(abb_rws_LIBRARIES @PROJECT_NAME@::@PROJECT_NAME@)

@@ -35,3 +35,9 @@
 !.pixi/config.toml
 
 /build
+
+# colcon
+/build-colcon
+/build-consumer
+/install
+/log

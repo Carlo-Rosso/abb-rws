@@ -37,8 +37,8 @@
  ***********************************************************************************************************************
  */
 
-#ifndef RWS_INTERFACE_H
-#define RWS_INTERFACE_H
+#ifndef ABB_RWS_RWS_INTERFACE_H
+#define ABB_RWS_RWS_INTERFACE_H
 
 #include "rws_cfg.h"
 #include "rws_client.h"
@@ -618,7 +618,7 @@ namespace abb
        *
        * \return std::vector<RobotWareOptionInfo> containing a list of the present RobotWare options.
        */
-      ABB_LIBRWS_DEPRECATED std::vector<RobotWareOptionInfo> getPresentRobotWareOptions();
+      ABB_RWS_DEPRECATED std::vector<RobotWareOptionInfo> getPresentRobotWareOptions();
 
       /**
        * \brief A method for retrieving the RobotWare options present on the active robot controller system.
@@ -795,7 +795,15 @@ namespace abb
        */
       bool setIOSignal(const std::string &iosignal, const std::string &value);
 
-      bool pulseIOSignal(const std::string iosignal, const int lenght);
+      /**
+       * \brief A method for pulsing a digital IO signal (low, high for the given time, then low again).
+       *
+       * \param iosignal for the name of the IO signal.
+       * \param length for the duration of the high level [microseconds].
+       *
+       * \return bool indicating if the communication was successful or not.
+       */
+      bool pulseIOSignal(const std::string iosignal, const int length);
 
       /**
        * \brief A method for setting the data of a RAPID symbol via raw text format.

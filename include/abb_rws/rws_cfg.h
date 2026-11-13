@@ -43,8 +43,8 @@
  * about how configurations are structured in RobotWare.
  */
 
-#ifndef RWS_CFG_H
-#define RWS_CFG_H
+#ifndef ABB_RWS_RWS_CFG_H
+#define ABB_RWS_RWS_CFG_H
 
 #include <string>
 

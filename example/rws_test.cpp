@@ -4,8 +4,8 @@
 #include <stdexcept>
 #include <string>
 
-#include <abb_librws/rws_interface.h>
-#include <abb_librws/rws_rapid.h>
+#include <abb_rws/rws_interface.h>
+#include <abb_rws/rws_rapid.h>
 
 using namespace abb::rws;
 
@@ -170,7 +170,7 @@ int main(int argc, char **argv)
     const Options options = parseOptions(argc, argv);
     const RWSVersion version = parseVersion(options.protocol);
 
-    std::cout << "=== abb_librws RWS protocol test ===\n"
+    std::cout << "=== abb_rws RWS protocol test ===\n"
               << "Controller: " << options.host << ':' << options.port << '\n'
               << "Protocol: " << options.protocol << " ("
               << (resolvedVersion(version, options.port) == RWSVersion::RWS2 ? "HTTPS / RWS 2.0" : "HTTP / RWS 1.0")

@@ -37,10 +37,11 @@
  ***********************************************************************************************************************
  */
 
-#include "abb_librws/rws_state_machine_interface.h"
-#ifdef _WIN32
-#include <windows.h>
-#endif
+#include <chrono>
+#include <sstream>
+#include <thread>
+
+#include "abb_rws/rws_state_machine_interface.h"
 
 namespace abb
 {
@@ -93,6 +94,110 @@ namespace abb
     const std::string SG_STATE_ERROR = "1";
     const std::string SG_STATE_KEEPOBJ = "9";
     const std::string SG_STATE_ACTION_COMPLETED = "6";
+
+    namespace
+    {
+      /**
+       * \brief Maximum time to wait for the SmartGripper to reach a requested state.
+       */
+      const std::chrono::seconds SG_WAIT_TIMEOUT(30);
+
+      /**
+       * \brief Period between two consecutive polls of a SmartGripper IO signal.
+       */
+      const std::chrono::milliseconds SG_POLL_PERIOD(20);
+
+      /**
+       * \brief Delay between sending a SmartGripper motion command and polling its outcome.
+       */
+      const std::chrono::milliseconds SG_COMMAND_DELAY(500);
+
+      /**
+       * \brief Poll a condition until it is true, or until SG_WAIT_TIMEOUT expires.
+       *
+       * \return bool indicating if the condition became true before the timeout.
+       */
+      template <typename Condition>
+      bool waitFor(Condition condition)
+      {
+        const auto deadline = std::chrono::steady_clock::now() + SG_WAIT_TIMEOUT;
+        while (!condition())
+        {
+          if (std::chrono::steady_clock::now() >= deadline)
+          {
+            return false;
+          }
+          std::this_thread::sleep_for(SG_POLL_PERIOD);
+        }
+        return true;
+      }
+
+      /**
+       * \brief Wait until an IO signal has the given value (bounded by SG_WAIT_TIMEOUT).
+       */
+      bool waitForIOSignal(RWSInterface *p_rws_interface, const std::string &iosignal, const std::string &value)
+      {
+        return waitFor([&]()
+                       { return p_rws_interface->getIOSignal(iosignal) == value; });
+      }
+
+      /**
+       * \brief Wait until the SmartGripper actual speed is (almost) zero (bounded by SG_WAIT_TIMEOUT).
+       */
+      bool waitForSGStandstill(RWSInterface *p_rws_interface)
+      {
+        return waitFor([&]()
+                       {
+                         std::stringstream ss(p_rws_interface->getIOSignal(IOSignals::SG_ACTUAL_SPEED));
+                         int speed = 0;
+                         ss >> speed;
+                         return !ss.fail() && speed / 10 <= 1; });
+      }
+
+      /**
+       * \brief Command the SmartGripper to its ready state and wait for it.
+       */
+      bool goToReady(RWSInterface *p_rws_interface)
+      {
+        return p_rws_interface->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GO_TO_READY) &&
+               waitForIOSignal(p_rws_interface, IOSignals::SG_SYS_STATE, SG_STATE_READY);
+      }
+
+      /**
+       * \brief Run a SmartGripper grip command (inward or outward) and wait until the object is held.
+       */
+      bool runGripCommand(RWSInterface *p_rws_interface, const std::string &command)
+      {
+        if (p_rws_interface->getIOSignal(IOSignals::SG_STATUS_CALIBRATED) != SystemConstants::IOSignals::HIGH)
+        {
+          return false;
+        }
+
+        if (!goToReady(p_rws_interface) || !p_rws_interface->setIOSignal(IOSignals::SG_CMD_GRIPPER, command))
+        {
+          return false;
+        }
+
+        std::this_thread::sleep_for(SG_COMMAND_DELAY);
+
+        return waitForIOSignal(p_rws_interface, IOSignals::SG_SYS_STATE, SG_STATE_KEEPOBJ);
+      }
+
+      /**
+       * \brief Run a SmartGripper jog command (close or open), wait for standstill and go back to ready.
+       */
+      bool runJogCommand(RWSInterface *p_rws_interface, const std::string &command)
+      {
+        if (!goToReady(p_rws_interface) || !p_rws_interface->setIOSignal(IOSignals::SG_CMD_GRIPPER, command))
+        {
+          return false;
+        }
+
+        std::this_thread::sleep_for(SG_COMMAND_DELAY);
+
+        return waitForSGStandstill(p_rws_interface) && goToReady(p_rws_interface);
+      }
+    } // end anonymous namespace
 
     const std::string Modules::T_ROB_EGM = "TRobEGM";
     const std::string Modules::T_ROB_MAIN = "TRobMain";
@@ -673,96 +778,22 @@ namespace abb
 
     bool RWSStateMachineInterface::Services::SG::GripIn() const
     {
-      if (p_rws_interface_->getIOSignal(IOSignals::SG_STATUS_CALIBRATED) == SystemConstants::IOSignals::LOW)
-        return false;
-      else
-      {
-        p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GO_TO_READY);
-        while (p_rws_interface_->getIOSignal(IOSignals::SG_SYS_STATE) != SG_STATE_READY)
-        {
-        };
-        p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GRIPINWARD);
-#ifdef _WIN32
-        Sleep((500000) / 1000);
-#else
-        usleep(500000);
-#endif
-        while (p_rws_interface_->getIOSignal(IOSignals::SG_SYS_STATE) != SG_STATE_KEEPOBJ)
-        {
-        };
-        return true;
-      }
+      return runGripCommand(p_rws_interface_, SG_CMD_GRIPINWARD);
     }
 
     bool RWSStateMachineInterface::Services::SG::GripOut() const
     {
-      if (p_rws_interface_->getIOSignal(IOSignals::SG_STATUS_CALIBRATED) == SystemConstants::IOSignals::LOW)
-        return false;
-      else
-      {
-        p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GO_TO_READY);
-        while (p_rws_interface_->getIOSignal(IOSignals::SG_SYS_STATE) != SG_STATE_READY)
-        {
-        };
-        p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GRIPOUTWARD);
-#ifdef _WIN32
-        Sleep((500000) / 1000);
-#else
-        usleep(500000);
-#endif
-        while (p_rws_interface_->getIOSignal(IOSignals::SG_SYS_STATE) != SG_STATE_KEEPOBJ)
-        {
-        };
-        return true;
-      }
+      return runGripCommand(p_rws_interface_, SG_CMD_GRIPOUTWARD);
     }
 
     bool RWSStateMachineInterface::Services::SG::JogIn() const
     {
-      p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GO_TO_READY);
-      while (p_rws_interface_->getIOSignal(IOSignals::SG_SYS_STATE) != SG_STATE_READY)
-      {
-      };
-      p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_CLOSE);
-#ifdef _WIN32
-      Sleep((500000) / 1000);
-#else
-      usleep(500000);
-#endif
-      while (std::stoi(p_rws_interface_->getIOSignal(IOSignals::SG_ACTUAL_SPEED)) / 10 > 1)
-      {
-      }
-      p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GO_TO_READY);
-      while (p_rws_interface_->getIOSignal(IOSignals::SG_SYS_STATE) != SG_STATE_READY)
-      {
-      }
-      p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GO_TO_READY);
-
-      return true;
+      return runJogCommand(p_rws_interface_, SG_CMD_CLOSE);
     }
 
     bool RWSStateMachineInterface::Services::SG::JogOut() const
     {
-      p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GO_TO_READY);
-      while (p_rws_interface_->getIOSignal(IOSignals::SG_SYS_STATE) != SG_STATE_READY)
-      {
-      };
-      p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_OPEN);
-#ifdef _WIN32
-      Sleep((500000) / 1000);
-#else
-      usleep(500000);
-#endif
-      while (std::stoi(p_rws_interface_->getIOSignal(IOSignals::SG_ACTUAL_SPEED)) / 10 > 1)
-      {
-      }
-      p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GO_TO_READY);
-      while (p_rws_interface_->getIOSignal(IOSignals::SG_SYS_STATE) != SG_STATE_READY)
-      {
-      }
-      p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GO_TO_READY);
-
-      return true;
+      return runJogCommand(p_rws_interface_, SG_CMD_OPEN);
     }
 
     bool RWSStateMachineInterface::Services::SG::Calibrate(uint32_t max_force, uint32_t max_speed) const
@@ -771,25 +802,23 @@ namespace abb
         max_force = 200;
       if (max_speed > 250)
         max_speed = 250;
-      p_rws_interface_->setIOSignal(IOSignals::SG_HAND_HOLDFORCE, std::to_string(max_force));
-      p_rws_interface_->setIOSignal(IOSignals::SG_HAND_MAXSPEED, std::to_string(max_speed));
 
-      if (p_rws_interface_->getIOSignal(IOSignals::SG_STATUS_CALIBRATED) != SystemConstants::IOSignals::LOW)
-        return false;
-      else
+      if (!p_rws_interface_->setIOSignal(IOSignals::SG_HAND_HOLDFORCE, std::to_string(max_force)) ||
+          !p_rws_interface_->setIOSignal(IOSignals::SG_HAND_MAXSPEED, std::to_string(max_speed)))
       {
-        p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GO_TO_READY);
-        while (p_rws_interface_->getIOSignal(IOSignals::SG_SYS_STATE) != SG_STATE_READY)
-        {
-        };
-        p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GO_TO_CALIBRATION);
-        while (p_rws_interface_->getIOSignal(IOSignals::SG_SYS_STATE) != SG_STATE_ACTION_COMPLETED)
-        {
-        };
-        p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GO_TO_READY);
-
-        return true;
+        return false;
       }
+
+      // Only calibrate a gripper that is not calibrated yet.
+      if (p_rws_interface_->getIOSignal(IOSignals::SG_STATUS_CALIBRATED) != SystemConstants::IOSignals::LOW)
+      {
+        return false;
+      }
+
+      return goToReady(p_rws_interface_) &&
+             p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GO_TO_CALIBRATION) &&
+             waitForIOSignal(p_rws_interface_, IOSignals::SG_SYS_STATE, SG_STATE_ACTION_COMPLETED) &&
+             p_rws_interface_->setIOSignal(IOSignals::SG_CMD_GRIPPER, SG_CMD_GO_TO_READY);
     }
 
     bool RWSStateMachineInterface::Services::SG::Calibrate() const
@@ -803,61 +832,55 @@ namespace abb
              signalRunSGRoutine();
     }
 
-    // const std::string IOSignals::SG_CMD_VACUUM    = "EtherNetIP/Hand/hand_CmdVacuum";
-    // const std::string IOSignals::SG_CMD_BLOW    = "EtherNetIP/Hand/hand_CmdBlowoff";
-    // const std::string IOSignals::SG_STATUS_VACUUM    = "EtherNetIP/Hand/hand_StatusVacuum";
-    // const std::string IOSignals::SG_STATUS_BLOW    = "EtherNetIP/Hand/hand_StatusBlowoff";
-    // const std::string IOSignals::SG_ACTUALE_PRESSURE    = "EtherNetIP/Hand/hand_ActualPressure";
-
-    bool RWSStateMachineInterface::Services::SG::VacuumOn(uint32_t num_valve = 1) const
+    bool RWSStateMachineInterface::Services::SG::VacuumOn(uint32_t num_valve) const
     {
-      std::string sg_status_blow = IOSignals::SG_STATUS_BLOW + std::to_string(num_valve);
-      std::string sg_cmd_blow = IOSignals::SG_CMD_BLOW + std::to_string(num_valve);
-      std::string sg_cmd_vacuum = IOSignals::SG_CMD_VACUUM + std::to_string(num_valve);
-      if (p_rws_interface_->getIOSignal(sg_status_blow) == SystemConstants::IOSignals::HIGH)
+      const std::string sg_status_blow = IOSignals::SG_STATUS_BLOW + std::to_string(num_valve);
+      const std::string sg_cmd_blow = IOSignals::SG_CMD_BLOW + std::to_string(num_valve);
+      const std::string sg_cmd_vacuum = IOSignals::SG_CMD_VACUUM + std::to_string(num_valve);
+
+      // Stop blowing off before turning the vacuum on.
+      if (p_rws_interface_->getIOSignal(sg_status_blow) == SystemConstants::IOSignals::HIGH &&
+          !p_rws_interface_->setIOSignal(sg_cmd_blow, SystemConstants::IOSignals::LOW))
       {
-        p_rws_interface_->setIOSignal(sg_cmd_blow, SystemConstants::IOSignals::LOW);
+        return false;
       }
-      while (p_rws_interface_->getIOSignal(sg_status_blow) != SystemConstants::IOSignals::LOW)
-      {
-      };
-      p_rws_interface_->setIOSignal(sg_cmd_vacuum, SystemConstants::IOSignals::HIGH);
-      return true;
+
+      return waitForIOSignal(p_rws_interface_, sg_status_blow, SystemConstants::IOSignals::LOW) &&
+             p_rws_interface_->setIOSignal(sg_cmd_vacuum, SystemConstants::IOSignals::HIGH);
     }
 
-    bool RWSStateMachineInterface::Services::SG::VacuumOff(uint32_t num_valve = 1) const
+    bool RWSStateMachineInterface::Services::SG::VacuumOff(uint32_t num_valve) const
     {
-      std::string sg_cmd_vacuum = IOSignals::SG_CMD_VACUUM + std::to_string(num_valve);
-      p_rws_interface_->setIOSignal(sg_cmd_vacuum, SystemConstants::IOSignals::LOW);
-      return true;
+      const std::string sg_cmd_vacuum = IOSignals::SG_CMD_VACUUM + std::to_string(num_valve);
+      return p_rws_interface_->setIOSignal(sg_cmd_vacuum, SystemConstants::IOSignals::LOW);
     }
 
-    bool RWSStateMachineInterface::Services::SG::BlowOn(uint32_t num_valve = 1) const
+    bool RWSStateMachineInterface::Services::SG::BlowOn(uint32_t num_valve) const
     {
-      std::string sg_status_vacuum = IOSignals::SG_STATUS_VACUUM + std::to_string(num_valve);
-      std::string sg_cmd_blow = IOSignals::SG_CMD_BLOW + std::to_string(num_valve);
-      std::string sg_cmd_vacuum = IOSignals::SG_CMD_VACUUM + std::to_string(num_valve);
-      if (p_rws_interface_->getIOSignal(sg_status_vacuum) == SystemConstants::IOSignals::HIGH)
+      const std::string sg_status_vacuum = IOSignals::SG_STATUS_VACUUM + std::to_string(num_valve);
+      const std::string sg_cmd_blow = IOSignals::SG_CMD_BLOW + std::to_string(num_valve);
+      const std::string sg_cmd_vacuum = IOSignals::SG_CMD_VACUUM + std::to_string(num_valve);
+
+      // Turn the vacuum off before blowing off.
+      if (p_rws_interface_->getIOSignal(sg_status_vacuum) == SystemConstants::IOSignals::HIGH &&
+          !p_rws_interface_->setIOSignal(sg_cmd_vacuum, SystemConstants::IOSignals::LOW))
       {
-        p_rws_interface_->setIOSignal(sg_cmd_vacuum, SystemConstants::IOSignals::LOW);
+        return false;
       }
-      while (p_rws_interface_->getIOSignal(sg_status_vacuum) != SystemConstants::IOSignals::LOW)
-      {
-      };
-      p_rws_interface_->setIOSignal(sg_cmd_blow, SystemConstants::IOSignals::HIGH);
-      return true;
+
+      return waitForIOSignal(p_rws_interface_, sg_status_vacuum, SystemConstants::IOSignals::LOW) &&
+             p_rws_interface_->setIOSignal(sg_cmd_blow, SystemConstants::IOSignals::HIGH);
     }
 
-    bool RWSStateMachineInterface::Services::SG::BlowOff(uint32_t num_valve = 1) const
+    bool RWSStateMachineInterface::Services::SG::BlowOff(uint32_t num_valve) const
     {
-      std::string sg_cmd_blow = IOSignals::SG_CMD_BLOW + std::to_string(num_valve);
-      p_rws_interface_->setIOSignal(sg_cmd_blow, SystemConstants::IOSignals::HIGH);
-      return true;
+      const std::string sg_cmd_blow = IOSignals::SG_CMD_BLOW + std::to_string(num_valve);
+      return p_rws_interface_->setIOSignal(sg_cmd_blow, SystemConstants::IOSignals::LOW);
     }
 
-    std::string RWSStateMachineInterface::Services::SG::getPressure(uint32_t num_valve = 1) const
+    std::string RWSStateMachineInterface::Services::SG::getPressure(uint32_t num_valve) const
     {
-      std::string sg_actual_pressure = IOSignals::SG_ACTUAL_PRESSURE + std::to_string(num_valve);
+      const std::string sg_actual_pressure = IOSignals::SG_ACTUAL_PRESSURE + std::to_string(num_valve);
       return p_rws_interface_->getIOSignal(sg_actual_pressure);
     }
 

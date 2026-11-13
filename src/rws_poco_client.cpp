@@ -43,7 +43,7 @@
 #include "Poco/Net/NetException.h"
 #include "Poco/StreamCopier.h"
 
-#include "abb_librws/rws_poco_client.h"
+#include "abb_rws/rws_poco_client.h"
 
 using namespace Poco;
 using namespace Poco::Net;
@@ -253,22 +253,15 @@ namespace abb
         request.add("Accept", "application/xhtml+xml;v=2.0");
       }
 
-      if (method == HTTPRequest::HTTP_POST || !content.empty())
-      {
-        if (rws_version_ == RWSVersion::RWS1)
-        {
-          request.setContentType("application/x-www-form-urlencoded");
-        }
-        else if (rws_version_ == RWSVersion::RWS2)
-        {
-          request.setContentType("application/x-www-form-urlencoded;v=2.0");
-        }
-      }
-
       if (method == HTTPRequest::HTTP_PUT && rws_version_ == RWSVersion::RWS2)
       {
-        // request.setContentType("application/x-www-form-urlencoded");
+        // RWS 2.0 file upload (the only PUT request in this library).
         request.setContentType("text/plain;v=2.0");
+      }
+      else if (method == HTTPRequest::HTTP_POST || !content.empty())
+      {
+        request.setContentType(rws_version_ == RWSVersion::RWS2 ? "application/x-www-form-urlencoded;v=2.0"
+                                                                : "application/x-www-form-urlencoded");
       }
 
       // Attempt the communication.
@@ -294,14 +287,7 @@ namespace abb
         // Check if there was a server error, if so, make another attempt with a clean sheet.
         if (response.getStatus() >= HTTPResponse::HTTP_INTERNAL_SERVER_ERROR)
         {
-          if (rws_version_ == RWSVersion::RWS1)
-          {
-            http_client_session_.reset();
-          }
-          else if (rws_version_ == RWSVersion::RWS2)
-          {
-            https_client_session_.reset();
-          }
+          clientSession().reset();
           request.erase(HTTPRequest::COOKIE);
           sendAndReceive(result, request, response, content);
         }
@@ -310,12 +296,6 @@ namespace abb
         if (response.getStatus() == HTTPResponse::HTTP_UNAUTHORIZED)
         {
           authenticate(result, request, response, content);
-        }
-        if (rws_version_ == RWSVersion::RWS2)
-        {
-          // If the initial request was unauthorized, the result object has now been updated by authenticate().
-          // We need to update the local response object as well to reflect the new state.
-          response.setStatus(result.poco_info.http.response.status);
         }
 
         result.status = POCOResult::OK;
@@ -339,14 +319,7 @@ namespace abb
       if (result.status != POCOResult::OK)
       {
         cookies_.clear();
-        if (rws_version_ == RWSVersion::RWS1)
-        {
-          http_client_session_.reset();
-        }
-        else if (rws_version_ == RWSVersion::RWS2)
-        {
-          https_client_session_.reset();
-        }
+        clientSession().reset();
       }
 
       return result;
@@ -371,34 +344,22 @@ namespace abb
       // Attempt the communication.
       try
       {
-        if (rws_version_ == RWSVersion::RWS1)
+        result.addHTTPRequestInfo(request);
+
         {
-          result.addHTTPRequestInfo(request);
+          // We must have at least websocket_connect_mutext_.
+          // If a connection already exists, we must also have websocket_use_mutex_.
+          // If not, nobody should have the mutex anyway, so we should get it immediately.
+          ScopedLock<Mutex> connect_lock(websocket_connect_mutex_);
+          ScopedLock<Mutex> use_lock(websocket_use_mutex_);
 
-          {
-            // We must have at least websocket_connect_mutext_.
-            // If a connection already exists, we must also have websocket_use_mutex_.
-            // If not, nobody should have the mutex anyway, so we should get it immediately.
-            ScopedLock<Mutex> connect_lock(websocket_connect_mutex_);
-            ScopedLock<Mutex> use_lock(websocket_use_mutex_);
-
-            p_websocket_ = new WebSocket(http_client_session_, request, response);
-            p_websocket_->setReceiveTimeout(Poco::Timespan(timeout));
-          }
-
-          result.addHTTPResponseInfo(response);
-          result.status = POCOResult::OK;
-        }
-        else if (rws_version_ == RWSVersion::RWS2)
-        {
-          result.addHTTPRequestInfo(request);
-
-          p_websocket_ = new WebSocket(https_client_session_, request, response);
+          // For RWS 2.0 this is a secure WebSocket (wss), since the session is an HTTPSClientSession.
+          p_websocket_ = new WebSocket(clientSession(), request, response);
           p_websocket_->setReceiveTimeout(Poco::Timespan(timeout));
-
-          result.addHTTPResponseInfo(response);
-          result.status = POCOResult::OK;
         }
+
+        result.addHTTPResponseInfo(response);
+        result.status = POCOResult::OK;
       }
       catch (InvalidArgumentException &e)
       {
@@ -423,14 +384,7 @@ namespace abb
 
       if (result.status != POCOResult::OK)
       {
-        if (rws_version_ == RWSVersion::RWS1)
-        {
-          http_client_session_.reset();
-        }
-        else if (rws_version_ == RWSVersion::RWS2)
-        {
-          https_client_session_.reset();
-        }
+        clientSession().reset();
       }
 
       return result;
@@ -512,14 +466,7 @@ namespace abb
 
       if (result.status != POCOResult::OK)
       {
-        if (rws_version_ == RWSVersion::RWS1)
-        {
-          http_client_session_.reset();
-        }
-        else if (rws_version_ == RWSVersion::RWS2)
-        {
-          https_client_session_.reset();
-        }
+        clientSession().reset();
       }
 
       return result;
@@ -559,16 +506,8 @@ namespace abb
 
       // Contact the server.
       std::string response_content;
-      if (rws_version_ == RWSVersion::RWS1)
-      {
-        http_client_session_.sendRequest(request) << request_content;
-        StreamCopier::copyToString(http_client_session_.receiveResponse(response), response_content);
-      }
-      else if (rws_version_ == RWSVersion::RWS2)
-      {
-        https_client_session_.sendRequest(request) << request_content;
-        StreamCopier::copyToString(https_client_session_.receiveResponse(response), response_content);
-      }
+      clientSession().sendRequest(request) << request_content;
+      StreamCopier::copyToString(clientSession().receiveResponse(response), response_content);
 
       // Add response info to the result.
       result.addHTTPResponseInfo(response, response_content);

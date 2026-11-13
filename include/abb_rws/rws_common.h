@@ -37,8 +37,8 @@
  ***********************************************************************************************************************
  */
 
-#ifndef RWS_COMMON_H
-#define RWS_COMMON_H
+#ifndef ABB_RWS_RWS_COMMON_H
+#define ABB_RWS_RWS_COMMON_H
 
 #include <iostream>
 #include <string>
@@ -51,7 +51,7 @@
 #include "Poco/DOM/NodeIterator.h"
 #include "Poco/DOM/NodeList.h"
 
-#include "abb_librws_export.h"
+#include "abb_rws_export.h"
 
 namespace abb
 {
@@ -166,7 +166,7 @@ namespace abb
       /**
        * \brief Controller states related constants.
        */
-      struct ABB_LIBRWS_EXPORT ContollerStates
+      struct ABB_RWS_EXPORT ContollerStates
       {
         /**
          * \brief Robot controller motor on.
@@ -192,7 +192,7 @@ namespace abb
       /**
        * \brief General constants.
        */
-      struct ABB_LIBRWS_EXPORT General
+      struct ABB_RWS_EXPORT General
       {
         /**
          * \brief Default name of an application using RWS.
@@ -284,7 +284,7 @@ namespace abb
       /**
        * \brief IO signal related constants.
        */
-      struct ABB_LIBRWS_EXPORT IOSignals
+      struct ABB_RWS_EXPORT IOSignals
       {
         /**
          * \brief Name of defined IO signal for smart gripper left position.
@@ -342,7 +342,7 @@ namespace abb
       /**
        * \brief RAPID related constants.
        */
-      struct ABB_LIBRWS_EXPORT RAPID
+      struct ABB_RWS_EXPORT RAPID
       {
         /**
          * \brief RAPID boolean false.
@@ -413,7 +413,7 @@ namespace abb
         /**
          * \brief XML attributes specifying names with corresponding values.
          */
-        struct ABB_LIBRWS_EXPORT XMLAttributes
+        struct ABB_RWS_EXPORT XMLAttributes
         {
           /**
            * \brief Class & active type.
@@ -529,7 +529,7 @@ namespace abb
         /**
          * \brief Identifiers in different RWS messages. E.g. XML attribute names/values.
          */
-        struct ABB_LIBRWS_EXPORT Identifiers
+        struct ABB_RWS_EXPORT Identifiers
         {
           /**
            * \brief Active type.
@@ -700,7 +700,7 @@ namespace abb
         /**
          * \brief RWS queries.
          */
-        struct ABB_LIBRWS_EXPORT Queries
+        struct ABB_RWS_EXPORT Queries
         {
           /**
            * \brief Release action query.
@@ -751,7 +751,7 @@ namespace abb
         /**
          * \brief RWS services.
          */
-        struct ABB_LIBRWS_EXPORT Services
+        struct ABB_RWS_EXPORT Services
         {
           /**
            * \brief Controller service.
@@ -782,7 +782,7 @@ namespace abb
         /**
          * \brief RWS resources and queries.
          */
-        struct ABB_LIBRWS_EXPORT Resources
+        struct ABB_RWS_EXPORT Resources
         {
           /**
            * \brief Instances.

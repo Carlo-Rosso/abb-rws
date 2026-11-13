@@ -38,11 +38,13 @@
  */
 
 #include <algorithm>
+#include <chrono>
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 
-#include "abb_librws/rws_interface.h"
-#include "abb_librws/rws_rapid.h"
+#include "abb_rws/rws_interface.h"
+#include "abb_rws/rws_rapid.h"
 
 namespace
 {
@@ -1032,18 +1034,20 @@ namespace abb
       return rws_client_.setIOSignal(iosignal, value).success;
     }
 
-    bool RWSInterface::pulseIOSignal(const std::string iosignal, const int lenght)
+    bool RWSInterface::pulseIOSignal(const std::string iosignal, const int length)
     {
-      setIOSignal(iosignal, "0");
-      setIOSignal(iosignal, "1");
-#ifdef _WIN32
-#include <windows.h>
-      Sleep((lenght) / 1000);
-#else
-      usleep(lenght);
-#endif
-      return setIOSignal(iosignal, "0");
-      ;
+      if (!setIOSignal(iosignal, SystemConstants::IOSignals::LOW) ||
+          !setIOSignal(iosignal, SystemConstants::IOSignals::HIGH))
+      {
+        return false;
+      }
+
+      if (length > 0)
+      {
+        std::this_thread::sleep_for(std::chrono::microseconds(length));
+      }
+
+      return setIOSignal(iosignal, SystemConstants::IOSignals::LOW);
     }
 
     std::string RWSInterface::getRAPIDSymbolData(const std::string &task,

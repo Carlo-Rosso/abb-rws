@@ -37,8 +37,8 @@
  ***********************************************************************************************************************
  */
 
-#ifndef RWS_RAPID_H
-#define RWS_RAPID_H
+#ifndef ABB_RWS_RWS_RAPID_H
+#define ABB_RWS_RWS_RAPID_H
 
 #include <string>
 #include <vector>

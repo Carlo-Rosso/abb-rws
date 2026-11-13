@@ -1,17 +1,44 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>abb_librws</name>
-  <version>1.2.0</version>
-  <description>Package for easing the use of ABB's Robot Web Services (RWS) feature</description>
-  <maintainer email="g.a.vanderhoorn@tudelft.nl">G.A. vd. Hoorn (TU Delft Robotics Institute)</maintainer>
-  <license>BSD 3-Clause</license>
-  <url type="repository">https://github.com/ros-industrial/abb_librws</url>
+  <!--
+    ROS package names must match ^[a-z][a-z0-9_]*$ (REP 144), so the package is
+    named abb_rws here (and in CMake), while the repository and the conda-forge
+    package use the abb-rws spelling.
+
+    This is a hard fork of ros-industrial/abb_librws, extended with RWS 2.0
+    support. See AUTHORS.md for the full list of authors and contributors.
+  -->
+  <name>abb_rws</name>
+  <version>2.0.0</version>
+  <description>
+    C++ library for easing the use of ABB's Robot Web Services (RWS 1.0 and 2.0).
+    Hard fork of abb_librws (https://github.com/ros-industrial/abb_librws),
+    originally developed by Jon Tjerngren (ABB), extended with RWS 2.0 support and
+    selection between RWS 1.0 and 2.0.
+  </description>
+
+  <maintainer email="carlo.rosso@iit.it">Carlo Rosso</maintainer>
+
+  <license>BSD-3-Clause</license>
+
+  <url type="website">https://github.com/Carlo-Rosso/abb-rws</url>
+  <url type="repository">https://github.com/Carlo-Rosso/abb-rws</url>
+  <url type="bugtracker">https://github.com/Carlo-Rosso/abb-rws/issues</url>
+
+  <!-- Original abb_librws library (RWS 1.0) -->
   <author>Jon Tjerngren</author>
+  <author email="g.a.vanderhoorn@tudelft.nl">G.A. vd. Hoorn</author>
+  <!-- RWS 2.0 support -->
+  <author>JOiiNT LAB (Fondazione Istituto Italiano di Tecnologia, Intellimech)</author>
+  <author>Gianluca Correnti</author>
+  <author email="carlo.rosso@iit.it">Carlo Rosso</author>
 
   <buildtool_depend>cmake</buildtool_depend>
 
+  <!-- rosdep keys; RoboStack maps them to the conda-forge poco and openssl packages -->
   <depend version_gte="1.4.3">libpoco-dev</depend>
+  <depend>libssl-dev</depend>
 
   <export>
     <build_type>cmake</build_type>

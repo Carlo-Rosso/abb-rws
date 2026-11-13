@@ -42,7 +42,7 @@
 
 #include "Poco/SAX/InputSource.h"
 
-#include "abb_librws/rws_client.h"
+#include "abb_rws/rws_client.h"
 
 namespace
 {
@@ -85,15 +85,8 @@ namespace abb
                                                                       const Priority priority,
                                                                       const RWSVersion version)
     {
-      std::string resource_uri;
-      if (version == RWSVersion::RWS1)
-      {
-        resource_uri = Resources::RW_RAPID_SYMBOL_DATA_RAPID_1_0;
-      }
-      else if (version == RWSVersion::RWS2)
-      {
-        resource_uri = Resources::RW_RAPID_SYMBOL_DATA_RAPID_2_0;
-      }
+      std::string resource_uri = (version == RWSVersion::RWS2 ? Resources::RW_RAPID_SYMBOL_DATA_RAPID_2_0
+                                                               : Resources::RW_RAPID_SYMBOL_DATA_RAPID_1_0);
 
       resource_uri += "/";
       resource_uri += resource.task;
@@ -101,6 +94,11 @@ namespace abb
       resource_uri += resource.module;
       resource_uri += "/";
       resource_uri += resource.name;
+      if (version == RWSVersion::RWS2)
+      {
+        // RWS 2.0: /rw/rapid/symbol/RAPID/{task}/{module}/{name}/data;value
+        resource_uri += "/data";
+      }
       resource_uri += ";";
       resource_uri += Identifiers::VALUE;
 
@@ -204,38 +202,36 @@ namespace abb
     {
       std::string uri = generateMechanicalUnitPath(mechunit) + Resources::ROBTARGET;
 
-      if (getRWSVersion() == RWSVersion::RWS1)
+      // The coordinate, tool and wobj query parameters are supported by both RWS 1.0 and 2.0.
+      std::string args = "";
+      if (!tool.empty())
       {
-        std::string args = "";
-        if (!tool.empty())
-        {
-          args += "&tool=" + tool;
-        }
-        if (!wobj.empty())
-        {
-          args += "&wobj=" + wobj;
-        }
+        args += "&tool=" + tool;
+      }
+      if (!wobj.empty())
+      {
+        args += "&wobj=" + wobj;
+      }
 
-        const std::string coordinate_arg = "?coordinate=";
-        switch (coordinate)
-        {
-        case BASE:
-          uri += coordinate_arg + SystemConstants::General::COORDINATE_BASE + args;
-          break;
-        case WORLD:
-          uri += coordinate_arg + SystemConstants::General::COORDINATE_WORLD + args;
-          break;
-        case TOOL:
-          uri += coordinate_arg + SystemConstants::General::COORDINATE_TOOL + args;
-          break;
-        case WOBJ:
-          uri += coordinate_arg + SystemConstants::General::COORDINATE_WOBJ + args;
-          break;
-        default:
-          // If the "ACTIVE" enumeration is passed in (or any other non-identified value),
-          // do not add any arguments to this command
-          break;
-        }
+      const std::string coordinate_arg = "?coordinate=";
+      switch (coordinate)
+      {
+      case BASE:
+        uri += coordinate_arg + SystemConstants::General::COORDINATE_BASE + args;
+        break;
+      case WORLD:
+        uri += coordinate_arg + SystemConstants::General::COORDINATE_WORLD + args;
+        break;
+      case TOOL:
+        uri += coordinate_arg + SystemConstants::General::COORDINATE_TOOL + args;
+        break;
+      case WOBJ:
+        uri += coordinate_arg + SystemConstants::General::COORDINATE_WOBJ + args;
+        break;
+      default:
+        // If the "ACTIVE" enumeration is passed in (or any other non-identified value),
+        // do not add any arguments to this command
+        break;
       }
 
       EvaluationConditions evaluation_conditions;
@@ -404,12 +400,10 @@ namespace abb
       {
         uri += "?" + Queries::ACTION_SET;
       }
-      else if (getRWSVersion() == RWSVersion::RWS2)
+      else
       {
-        std::string set = Queries::ACTION_SET;
-        // remove "action=" for RWS 2.0
-        set.erase(0, 7);
-        uri += "/" + set;
+        // RWS 2.0: POST /rw/iosystem/signals/{network}/{device}/{signal}/set-value
+        uri += "/set-value";
       }
       std::string content = Identifiers::LVALUE + "=" + value;
 
@@ -584,7 +578,11 @@ namespace abb
       if (ss.fail())
         throw std::runtime_error(EXCEPTION_CREATE_STRING);
 
-      std::string uri = "/rw/panel/speedratio?action=setspeedratio";
+      std::string uri = "/rw/panel/speedratio";
+      if (getRWSVersion() == RWSVersion::RWS1)
+      {
+        uri += "?action=setspeedratio";
+      }
       std::string content = "speed-ratio=" + ss.str();
 
       EvaluationConditions evaluation_conditions;
@@ -944,10 +942,7 @@ namespace abb
       {
         return Resources::RW_RAPID_SYMBOL_DATA_RAPID_1_0 + "/" + resource.task + "/" + resource.module + "/" + resource.name;
       }
-      else if (getRWSVersion() == RWSVersion::RWS2)
-      {
-        return Resources::RW_RAPID_SYMBOL_DATA_RAPID_2_0 + "/" + resource.task + "/" + resource.module + "/" + resource.name + "/data";
-      }
+      return Resources::RW_RAPID_SYMBOL_DATA_RAPID_2_0 + "/" + resource.task + "/" + resource.module + "/" + resource.name + "/data";
     }
 
     std::string RWSClient::generateRAPIDPropertiesPath(const RAPIDResource &resource)
@@ -956,10 +951,7 @@ namespace abb
       {
         return Resources::RW_RAPID_SYMBOL_PROPERTIES_RAPID_1_0 + "/" + resource.task + "/" + resource.module + "/" + resource.name;
       }
-      else if (getRWSVersion() == RWSVersion::RWS2)
-      {
-        return Resources::RW_RAPID_SYMBOL_PROPERTIES_RAPID_2_0 + "/" + resource.task + "/" + resource.module + "/" + resource.name + "/properties";
-      }
+      return Resources::RW_RAPID_SYMBOL_PROPERTIES_RAPID_2_0 + "/" + resource.task + "/" + resource.module + "/" + resource.name + "/properties";
     }
 
     std::string RWSClient::generateFilePath(const FileResource &resource)

@@ -37,11 +37,11 @@
  ***********************************************************************************************************************
  */
 
-#ifndef RWS_STATE_MACHINE_INTERFACE_H
-#define RWS_STATE_MACHINE_INTERFACE_H
+#ifndef ABB_RWS_RWS_STATE_MACHINE_INTERFACE_H
+#define ABB_RWS_RWS_STATE_MACHINE_INTERFACE_H
 
 #include "rws_interface.h"
-#include "cstdint"
+#include <cstdint>
 
 namespace abb
 {
@@ -124,7 +124,7 @@ namespace abb
         /**
          * \brief IO signal resources.
          */
-        struct ABB_LIBRWS_EXPORT IOSignals
+        struct ABB_RWS_EXPORT IOSignals
         {
           /**
            * \brief IO signal for requesting start of EGM joint motions (i.e. EGM joint mode).
@@ -216,7 +216,7 @@ namespace abb
           /**
            * \brief RAPID modules.
            */
-          struct ABB_LIBRWS_EXPORT Modules
+          struct ABB_RWS_EXPORT Modules
           {
             /**
              * \brief RAPID module providing functionality for using EGM.
@@ -256,7 +256,7 @@ namespace abb
           /**
            * \brief Predefiend RAPID procedures.
            */
-          struct ABB_LIBRWS_EXPORT Procedures
+          struct ABB_RWS_EXPORT Procedures
           {
             /**
              * \brief Predefined RAPID procedure "runCallByVar".
@@ -292,7 +292,7 @@ namespace abb
           /**
            * \brief RAPID symbols.
            */
-          struct ABB_LIBRWS_EXPORT Symbols
+          struct ABB_RWS_EXPORT Symbols
           {
             /**
              * \brief RAPID symbol indicating the current EGM action of a RAPID motion task.
@@ -1580,29 +1580,111 @@ namespace abb
            */
           bool signalRunSGRoutine() const;
 
+          /*
+           * Direct SmartGripper control through the "EtherNetIP/Hand/..." IO signals.
+           *
+           * The blocking methods below poll the gripper IO signals and give up (returning false)
+           * if the expected state is not reached within 30 seconds.
+           */
+
+          /**
+           * \brief Grip inward and wait until the object is held. Requires a calibrated gripper.
+           *
+           * \return bool indicating if the command was successful or not.
+           */
           bool GripIn() const;
 
+          /**
+           * \brief Grip outward and wait until the object is held. Requires a calibrated gripper.
+           *
+           * \return bool indicating if the command was successful or not.
+           */
           bool GripOut() const;
 
+          /**
+           * \brief Close the fingers, wait for standstill and go back to the ready state.
+           *
+           * \return bool indicating if the command was successful or not.
+           */
           bool JogIn() const;
 
+          /**
+           * \brief Open the fingers, wait for standstill and go back to the ready state.
+           *
+           * \return bool indicating if the command was successful or not.
+           */
           bool JogOut() const;
 
+          /**
+           * \brief Calibrate a gripper that is not calibrated yet.
+           *
+           * \param max_force for the hold force (clamped to 200).
+           * \param max_speed for the maximum speed (clamped to 250).
+           *
+           * \return bool indicating if the calibration was performed successfully (false if already calibrated).
+           */
           bool Calibrate(uint32_t max_force, uint32_t max_speed) const;
 
+          /**
+           * \brief Calibrate a gripper that is not calibrated yet, with maximum force and speed.
+           *
+           * \return bool indicating if the calibration was performed successfully (false if already calibrated).
+           */
           bool Calibrate() const;
 
+          /**
+           * \brief Run the SmartGripper initialization routine of the StateMachine Add-In.
+           *
+           * \param task for the RAPID task.
+           *
+           * \return bool indicating if the communication was successful or not.
+           */
           bool Initialize(const std::string task) const;
 
-          bool VacuumOn(uint32_t num_valve) const;
+          /**
+           * \brief Turn the vacuum on (turning blow-off off first).
+           *
+           * \param num_valve for the vacuum valve number.
+           *
+           * \return bool indicating if the command was successful or not.
+           */
+          bool VacuumOn(uint32_t num_valve = 1) const;
 
-          bool VacuumOff(uint32_t num_valve) const;
+          /**
+           * \brief Turn the vacuum off.
+           *
+           * \param num_valve for the vacuum valve number.
+           *
+           * \return bool indicating if the communication was successful or not.
+           */
+          bool VacuumOff(uint32_t num_valve = 1) const;
 
-          bool BlowOn(uint32_t num_valve) const;
+          /**
+           * \brief Turn blow-off on (turning the vacuum off first).
+           *
+           * \param num_valve for the vacuum valve number.
+           *
+           * \return bool indicating if the command was successful or not.
+           */
+          bool BlowOn(uint32_t num_valve = 1) const;
 
-          bool BlowOff(uint32_t num_valve) const;
+          /**
+           * \brief Turn blow-off off.
+           *
+           * \param num_valve for the vacuum valve number.
+           *
+           * \return bool indicating if the communication was successful or not.
+           */
+          bool BlowOff(uint32_t num_valve = 1) const;
 
-          std::string getPressure(uint32_t num_valve) const;
+          /**
+           * \brief Read the actual vacuum pressure.
+           *
+           * \param num_valve for the vacuum valve number.
+           *
+           * \return std::string containing the pressure (empty if the communication failed).
+           */
+          std::string getPressure(uint32_t num_valve = 1) const;
 
         private:
           /**
