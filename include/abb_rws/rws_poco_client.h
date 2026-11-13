@@ -355,16 +355,9 @@ namespace abb
        */
       void setHTTPTimeout(const Poco::Int64 timeout)
       {
-        if (rws_version_ == RWSVersion::RWS1)
-        {
-          http_client_session_.setTimeout(Poco::Timespan(timeout));
-          http_client_session_.reset();
-        }
-        else if (rws_version_ == RWSVersion::RWS2)
-        {
-          https_client_session_.setTimeout(Poco::Timespan(timeout));
-          https_client_session_.reset();
-        }
+        Poco::ScopedLock<Poco::Mutex> lock(http_mutex_);
+        clientSession().setTimeout(Poco::Timespan(timeout));
+        clientSession().reset();
       }
 
       /**
@@ -446,6 +439,20 @@ namespace abb
       }
 
       /**
+       * \brief The client session used for the configured RWS version.
+       *
+       * RWS 1.0 uses plain HTTP, RWS 2.0 uses HTTPS (HTTPSClientSession derives from HTTPClientSession).
+       */
+      Poco::Net::HTTPClientSession &clientSession()
+      {
+        if (rws_version_ == RWSVersion::RWS2)
+        {
+          return https_client_session_;
+        }
+        return http_client_session_;
+      }
+
+      /**
        * \brief A method for making a HTTP request.
        *
        * \param method for the request's method.
@@ -494,7 +501,7 @@ namespace abb
       /**
        * \brief Static constant for the default HTTP communication timeout [microseconds].
        */
-      static const Poco::Int64 DEFAULT_HTTP_TIMEOUT = 400e3;
+      static const Poco::Int64 DEFAULT_HTTP_TIMEOUT = 400000;
 
       /**
        * \brief Static constant for the socket's buffer size.

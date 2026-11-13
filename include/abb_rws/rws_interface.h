@@ -795,7 +795,15 @@ namespace abb
        */
       bool setIOSignal(const std::string &iosignal, const std::string &value);
 
-      bool pulseIOSignal(const std::string iosignal, const int lenght);
+      /**
+       * \brief A method for pulsing a digital IO signal (low, high for the given time, then low again).
+       *
+       * \param iosignal for the name of the IO signal.
+       * \param length for the duration of the high level [microseconds].
+       *
+       * \return bool indicating if the communication was successful or not.
+       */
+      bool pulseIOSignal(const std::string iosignal, const int length);
 
       /**
        * \brief A method for setting the data of a RAPID symbol via raw text format.
