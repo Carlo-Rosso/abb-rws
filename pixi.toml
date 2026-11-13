@@ -10,11 +10,16 @@ cmake = ">=3.16"
 ninja = "*"
 cxx-compiler = "*"
 poco = ">=1.4.3"
+openssl = "*"
 
 [tasks]
 # -G Ninja overrides the CMAKE_GENERATOR(_PLATFORM) variables set by the
 # conda-forge MSVC activation scripts on Windows.
-configure = "cmake -G Ninja --preset default-examples"
+# CMAKE_PREFIX_PATH=$CONDA_PREFIX makes CMake prefer the pixi environment over
+# system libraries: otherwise FindOpenSSL (called by PocoConfig.cmake) follows
+# the system pkg-config and links the system OpenSSL, which is incompatible
+# with the conda-forge POCO build.
+configure = "cmake -G Ninja --preset default-examples -DCMAKE_PREFIX_PATH=$CONDA_PREFIX"
 build = { cmd = "cmake --build build", depends-on = ["configure"] }
 install = { cmd = "cmake --install build --prefix build/install", depends-on = ["build"] }
 clean = "cmake -E rm -rf build build-colcon install log"
@@ -33,7 +38,7 @@ colcon-common-extensions = "*"
 
 [feature.ros.tasks]
 check-package-xml = "python -c \"from catkin_pkg.package import parse_package; p = parse_package('.'); p.validate(); print(p.name, p.version, 'OK')\""
-colcon = { cmd = "colcon build --paths . --build-base build-colcon --install-base install --cmake-args -G Ninja -DCMAKE_BUILD_TYPE=Release", depends-on = ["check-package-xml"] }
+colcon = { cmd = "colcon build --paths . --build-base build-colcon --install-base install --cmake-args -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$CONDA_PREFIX", depends-on = ["check-package-xml"] }
 
 [environments]
 ros = ["ros"]

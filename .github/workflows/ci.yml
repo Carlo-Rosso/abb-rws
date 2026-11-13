@@ -59,7 +59,7 @@ jobs:
           target_link_libraries(consumer PRIVATE abb_rws::abb_rws)
           EOF
           pixi run cmake -S build-consumer -B build-consumer/build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$PWD/build/install"
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$PWD/build/install;$PWD/.pixi/envs/default"
           pixi run cmake --build build-consumer/build
 
       - name: Validate package.xml and build with colcon (ROS / RoboStack)
